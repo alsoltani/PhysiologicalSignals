@@ -1,93 +1,146 @@
 #coding:latin_1
 import numpy as np
 import pywt
+from math import sqrt, copysign
 
-#MATCHING PURSUIT
+######### MATCHING PURSUIT, NO CRITERION ######### 
 
-def mp(Phi, y, n_iter=20):
-    N = Phi.shape[1]
-    x = np.zeros(N)
-
+def MP_Arbitrary_Criterion(Phi, PhiT, y, n_iter):
+    x = np.zeros(PhiT.dot(y).shape[0])
     err = [np.linalg.norm(y)]
 
     for k in xrange(n_iter):
-        c = np.dot(Phi.T, y - np.dot(Phi, x))
+        c = PhiT.dot(y - Phi.dot(x))
         abs_c = np.abs(c)
         i_0 = np.argmax(abs_c)
         x[i_0] += c[i_0]
 
-        err.append(np.linalg.norm(y - np.dot(Phi, x)))
+        err.append(np.linalg.norm(y - Phi.dot(x)))
 
-    return x, err
+    z = Phi.dot(x)
+    return z, err, n_iter
 
-#MATCHING PURSUIT ORTHOGONAL
+######### MATCHING PURSUIT, STATISTICAL CRITERION ######### 
 
-def omp(Phi, y, seuil,nmax):	
-    N = Phi.shape[1]
-    x = np.zeros(N)
-    err = [np.linalg.norm(y)]
-    c = np.dot(Phi.T, y)
-    i_0 = np.argmax(np.abs(c))
-    n=0
-
-    while np.abs(c)[i_0]>seuil and n<nmax :
-        x[i_0] +=c[i_0] 
-        II = np.where(x)[0]
-        x[II] = np.dot(np.linalg.pinv(Phi[:, II]), y)
-        err.append(np.linalg.norm(y - np.dot(Phi, x)))
-	c = np.dot(Phi.T, y - np.dot(Phi,x))
-	i_0 = np.argmax(np.abs(c))
-	n+=1
-    return x, err
-    
-#SEUILLAGE DUR - PREMIER CRITERE (INVALIDE).
-#Ici on réalise un seuillage dur sur le signal pendant l'expérience, avec pour critère : seuls les coefficients > seuil sont conservés.
-#(Nous avons vu que le seuil choisi (max) n'était pas adapté.)
+def MP_Stat_Criterion(Phi, PhiT, y, sigma):
+	p=PhiT.dot(y).shape[0]
+	Lambda = np.zeros(p)
+	err = [np.linalg.norm(y)]
 	
-#Indicatrice{|x|>seuil}
-def f(x,seuil):
-	y=0
-	if abs(x)>seuil:
-		y=x
-	return y
+	#1st MP STEP
+	C = PhiT.dot(y)
+	abs_C = np.abs(C)
+	i_0 = np.argmax(abs_C)
+	
+	Dic=[Phi.dot(np.identity(p)[:,i_0])] #Temporary dictionary containing evaluated atoms
+	Dic_Arr=np.asarray(Dic).T
 
-def ompwavelet(y2, seuil, r):	
-    c = pywt.wavedec(y2, 'coif2',level=r)
-    c=[[f(x,seuil) for x in z] for z in c] #dans le cas de l'omp, le critere d'arret concerne uniquement le produit scalaire entre le signal et l'atome
-    y=pywt.waverec(c, 'coif2')
-    return y
+	TT, Q=(2,1)
+	
+	while TT>Q: 
+	
+		Lambda[i_0] += C[i_0]
+		err.append(np.linalg.norm(y - Phi.dot(Lambda)))
 
-#SEUILLAGE DUR - SECOND CRITERE
-#Ici on réalise un seuillage dur sur le signal pendant l'expérience, avec un nouveau seuil :
-#seuls les carrés des coefficients > variance avant l'expérience sont conservés.
+		#MP
+		C = np.dot(PhiT, y - Phi.dot(Lambda))
+		abs_C = np.abs(C)
+		i_0 = np.argmax(abs_C)
+		
+		x=Phi.dot(np.identity(p)[:,i_0])
+		H=Dic_Arr.dot(np.linalg.inv((Dic_Arr.T).dot(Dic_Arr))).dot(Dic_Arr.T)
+		TT=np.abs(x.T.dot(y))/(sigma*sqrt(np.linalg.norm(x)-(x.T).dot(H).dot(x)))
+		
+		S=np.random.standard_t(int(y.shape[0]-Dic_Arr.shape[1])-1,50)
+		Q=np.percentile(S,95)	
+		
+		Dic.append(x)
+		Dic_Arr=np.asarray(Dic).T
+		#print Dic_Arr.shape, i_0, C[i_0], err[-1]
 
-#Indicatrice{x²>seuil}
-def g(x,seuil):
-	y=0
-	if x*x>seuil:
-		y=x
-	return y   
+	return Phi.dot(Lambda), err, Dic_Arr.shape[1]
 
-def ompwavelet2(y1,y2,r,famille):
-    v=np.var(y1)
-    c = pywt.wavedec(y2, famille,level=r)
-    c=[[g(x,v) for x in z] for z in c]
-    y=pywt.waverec(c, famille)
-    return y
+######### ORTHOGONAL MATCHING PURSUIT, STAT CRITERION ######### 
 
-#COMPARAISON DES VARIANCES
-#Comparer la variance du residu courant,avec la variance pré-expérience, c'est comparer :
-#- la somme des carrés des coordonnées danss la base d'ondelettes (pré-expérience) 
-#- la somme des carrés des coordonnées "restantes"
-       
-#Renvoie une liste contenant l'énergie des résidus, en ajoutant à chaque étape des atomes significatifs.
-def oenergie(y2, famille, r):
+def OMP_Stat_Criterion(Phi, PhiT, y, sigma):	
+	p=PhiT.dot(y).shape[0]
+	Lambda = np.zeros(p)
+	err = [np.linalg.norm(y)]
+	
+	C = PhiT.dot(y)
+	abs_C = np.abs(C)
+	i_0 = np.argmax(abs_C)
+	
+	Dic=[Phi.dot(np.identity(p)[:,i_0])]
+	Dic_Arr=np.asarray(Dic).T
+
+	TT, Q=(2,1)
+	
+	while TT>Q: 
+	
+		Lambda[i_0] += C[i_0]
+		II = np.where(Lambda)[0] 
+		Lambda[II] = np.linalg.pinv(Phi.dot(np.identity(p)[:,II])).dot(y) #OMP projection
+		err.append(np.linalg.norm(y - Phi.dot(Lambda)))
+
+		#MP
+		C = np.dot(PhiT, y - Phi.dot(Lambda))
+		abs_C = np.abs(C)
+		i_0 = np.argmax(abs_C)
+		
+		x=Phi.dot(np.identity(p)[:,i_0])
+		H=Dic_Arr.dot(np.linalg.inv((Dic_Arr.T).dot(Dic_Arr))).dot(Dic_Arr.T)
+		TT=np.abs(x.T.dot(y))/(sigma*sqrt(np.linalg.norm(x)-(x.T).dot(H).dot(x)))
+		
+		S=np.random.standard_t(int(y.shape[0]-Dic_Arr.shape[1])-1,50)
+		Q=np.percentile(S,95)	
+		
+		Dic.append(x)
+		Dic_Arr=np.asarray(Dic).T
+
+	return Phi.dot(Lambda), err, Dic_Arr.shape[1]
+	
+	
+######### MEDIAN ABSOLUTE DEVIATION ######### 
+
+#consistent estimator of the std deviation
+#where hat(Sigma) a consistent estimator of the std dev. of the finest level detail coefficients.
+    
+def MAD(data):
+
+    return np.ma.median(np.abs(data - np.ma.median(data)))
+
+
+
+######### HARD THRESHOLDING USING MAD ######### 
+
+#NB : equiv. to OMP when using orthogonal dictionary.
+#We use the following threshold :
+#Thresh =   hat(Sigma) * sqrt(2 log n),
+
+def Hard_Thresholding_MAD(y,name,lvl):
+
+
+    c = pywt.wavedec(y, name, level=lvl,mode='per')
+    sigma = mad(c[-1])
+    thresh=sigma*np.sqrt(2*np.log(len(y)))
+
+    denoised = c[:]
+    denoised[1:] = (pywt.thresholding.hard(i, value=thresh) for i in denoised[1:])
+    return pywt.waverec(denoised,name,mode='per')
+
+
+######### COMPARING RESIDUALS ######### 
+
+#Outputs a list containing residuals energy, obtained iteratively by adding significant atoms.
+
+def OEnergy(y2, family, r):
     L=[]
-    for i in range(len(famille)):
-	c = pywt.wavedec(y2, famille[i],level=r)
+    for i in range(len(family)):
+	c = pywt.wavedec(y2, family[i],level=r)
 	c=[list(x) for x in c]
 	c=sum(c,[])
-	c=[x*x for x in c if x<>0] #x=0 survient avec une probabilité nulle
+	c=[x*x for x in c if x<>0] #x=0 happens with null probability
 	c.sort(reverse=True)
 	c=[np.log(sum(c[n:len(c)])) for n in range(len(c))]
 	L+=[c]
