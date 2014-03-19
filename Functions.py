@@ -1,7 +1,7 @@
 #coding:latin_1
 import numpy as np
 import pywt
-from math import sqrt
+from math import sqrt, copysign
 
 
 ######### MATCHING PURSUIT, NO CRITERION #########
@@ -89,6 +89,7 @@ def omp_stat_criterion(phi, phi_t, y, sigma):
         i_0 = np.argmax(abs_c)
 
         x = phi.dot(np.identity(p)[:, i_0])
+
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
         t = np.abs(x.T.dot(y-h.dot(y)))/(sigma*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
 
@@ -112,30 +113,17 @@ def mad(data):
 
 
 ######### HARD THRESHOLDING #########
+#a) N-largest Hard Thresholding : verifies same sparsity constraint as the Matching Pursuit solution.
 
-#NB : equiv. to OMP when using orthogonal dictionary.
-#We can use the following threshold :
-#thresh = sigma*np.sqrt(2*np.log(len(y)))
-
-#a) Hard Thresholding using Wavelet decomposition
-
-def hard_thresholding_wavedec(y, name, lvl, thresh):
-
-    c = pywt.wavedec(y, name, level=lvl)
-    denoised = c[:]
-    denoised[1:] = (pywt.thresholding.hard(i, value=thresh) for i in denoised[1:])
-    return pywt.waverec(denoised, name)
-
-
-#b) Hard Thresholding using Classes
-
-def hard_thresholding_operator(phi, phi_t, y, thresh):
+def hard_thresholding(phi, phi_t, y, n_thresh):
 
     c = phi_t.dot(y)
-    c = pywt.thresholding.hard(c, value=thresh)
+    thr = sorted(np.abs(c), reverse=True)[n_thresh-1]
+    c = pywt.thresholding.hard(c, thr)
+    #print np.flatnonzero(c).shape[0]
     return phi.dot(c)
 
-#c) Hard Thresholding, using MP on pre-experiment noise :
+#b) Hard Thresholding, using MP on pre-experiment noise :
 # - We select atoms describing noise implementing a MP on y1 (signal pre-experiment)
 # - we operate a hard thresholding by removing those from our explanatory model
 
@@ -147,7 +135,6 @@ def hard_thresholding_early_experiment(phi, phi_t, early_signal, currnt_signal):
 
         p = phi_t.dot(early_signal).shape[0]
         sigma = float(sqrt(np.var(early_signal)))
-        #sigma = 1e-20
         sparse = np.zeros(p)
         indexes = []
 

@@ -76,7 +76,7 @@ if __name__ == '__main__':
     plt.ylabel('MEG')
     plt.legend(loc='lower right')
     plt.tight_layout()
-    
+
     ######### 5) COMPARING CLASSIC & ORTHONORMALIZED DICTIONARIES #########
     
     GBasisT = gram_schmidt(PhiT.dot(np.identity(y2.size)).T).T
@@ -102,7 +102,6 @@ if __name__ == '__main__':
     plt.legend(loc='lower right')
     plt.tight_layout()
 
-
     ######### 6) LOG-DECREMENT RESULTS #########
     
     #6.1) Insights : Which algorithm, dictionary is the best ?
@@ -124,7 +123,6 @@ if __name__ == '__main__':
     plt.title('Selecting the right dictionary : orthogonalization results.')
     plt.legend(loc='lower right')
     plt.tight_layout()
-    plt.show()
 
     #6.2) Let us compare wavelets with the Daubechies family,
     # using classic and orthonormalized dictionaries.
@@ -166,59 +164,32 @@ if __name__ == '__main__':
     plt.legend(loc='lower right')
 
     plt.tight_layout()
-    plt.show()
 
-    """
     ######### 7) OMP, HARD THRESHOLDING COMPARISON #########
 
-    #Gabriel Peyré's article states that MP /w Orthogonal Basis is equiv. to Hard Thresholding.
-    #The follwing thrshold is arbitrary.
+    #Gabriel Peyre's article states that MP /w can be equiv. to Hard Thresholding,
+    #when the decomposition basis is a square orthonormal matrix.
+    #Hard Thresholding has to verify same sparsity constraint as the Matching Pursuit solution.
 
-    z_thr = hard_thresholding_operator(GBasisT.T, GBasisT, y2, 2e-12)
+    z_thr = hard_thresholding(GBasisT.T, GBasisT, y2, n_omp_gstat)
 
     fig = plt.figure()
     ax1 = fig.add_subplot(211)
     ax1.plot(y2, '#3D3D29', label='Noisy signal - during experiment')
-    ax1.plot(z_thr, 'y', label='Denoised signal: Hard Thresholding.')
+    ax1.plot(z_thr, '#CC00FF', label='Denoised signal: Hard Thresholding.')
     plt.xlabel('Time (ms)')
     plt.ylabel('MEG')
     plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
     plt.legend(loc='lower right')
     ax2 = fig.add_subplot(212)
-    ax2.plot(z_omp_gstat, 'r', label='Denoised signal : OMP stat, orthonorm. dict. : ' + str(n_omp_gstat) + ' iter.')
-    ax2.plot(z_thr, 'y', label='Denoised signal: Hard Thresholding')
+    ax2.plot(z_omp_gstat, 'r', label='Denoised signal : OMP stat, orth. dict. : ' + str(n_omp_gstat) + ' iter.')
+    ax2.plot(z_thr, '#CC00FF', label='Denoised signal: Hard Thresholding.')
     plt.xlabel('Time (ms)')
     plt.ylabel('MEG')
     plt.legend(loc='lower right')
     plt.tight_layout()
-    plt.show()
-    """
-    ######### 8) OMP, HARD THRESHOLDING USING EARLY EXPERIMENT #########
 
-    y1_resized = np.zeros(y2.shape)
-    y1_resized[:180] = y1[:180]
-    y1_resized[180:256] = y1[:76]
-    z_thr = hard_thresholding_early_experiment(GBasisT.T, GBasisT, y1_resized, y2)
-
-    fig = plt.figure()
-    ax1 = fig.add_subplot(211)
-    ax1.plot(y2, '#3D3D29', label='Noisy signal - during experiment')
-    ax1.plot(z_thr, 'y', label='Denoised signal: Hard Thresholding. - Pre-exp. threshold.')
-    plt.xlabel('Time (ms)')
-    plt.ylabel('MEG')
-    plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
-    plt.legend(loc='lower right')
-    ax2 = fig.add_subplot(212)
-    ax2.plot(z_omp_gstat, 'r', label='Denoised signal : OMP stat, orthonorm. dict. : ' + str(n_omp_gstat) + ' iter.')
-    ax2.plot(z_thr, 'y', label='Denoised signal: Hard Thresholding')
-    plt.xlabel('Time (ms)')
-    plt.ylabel('MEG')
-    plt.legend(loc='lower right')
-    plt.tight_layout()
-    plt.show()
-
-    """
-    ######### 9) TESTING OUR MODEL #########
+    ######### 8) TESTING OUR MODEL #########
 
     #TESTING OUR MODEL : NOISE SIMULATION
     #Our idea is the following : we simulate a white noise, add it to the denoised signal
@@ -228,21 +199,22 @@ if __name__ == '__main__':
     noise = np.asarray(np.random.normal(0, np.var(y1), y2.shape[0])).T
 
     z_new = z_mp_stat+noise
-    z_new_mp_stat, err_new_mp_stat, n_new_mp_stat = mp_stat_criterion(BasisT.T, BasisT, z_new, math.sqrt(np.var(y1)))
+    z_new_stat, err_new_stat, n_new_stat = mp_stat_criterion(BasisT.T, BasisT, z_new, math.sqrt(np.var(y1)))
 
     fig = plt.figure()
     ax1 = fig.add_subplot(211)
     ax1.plot(y2, '#999966', label='Noisy signal - during experiment')
-    ax1.plot(z_mp_stat, '#993300', label='Denoised signal: MP stat, classic dict. : ' + str(n_mp_stat) + ' iter.')
-    ax1.plot(z_new_mp_stat, '#FF0066', label='Re-denoised signal: same charact. : ' + str(n_new_mp_stat) + ' iter.')
+    ax1.plot(z_mp_stat, 'b', label='Denoised signal: MP stat, classic dict. : ' + str(n_mp_stat) + ' iter.')
+    ax1.plot(z_new_stat, 'r', label='Re-denoised signal: same charact. : ' + str(n_new_stat) + ' iter.')
     plt.xlabel('Time (ms)')
     plt.ylabel('MEG')
     plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
     plt.legend(loc='lower right')
     ax2 = fig.add_subplot(212)
-    ax2.plot(z_new_mp_stat-z_mp_stat, '#009999', label='Difference between the 2 denoised signals.')
+    ax2.plot(z_new_stat-z_mp_stat, '#009999', label='Difference between the 2 denoised signals.')
     plt.xlabel('Time (ms)')
     plt.ylabel('MEG')
     plt.legend(loc='lower right')
     plt.tight_layout()
-    plt.show()"""
+
+    plt.show()
