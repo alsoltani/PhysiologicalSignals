@@ -3,7 +3,7 @@ from numpy.linalg import inv
 from math import sqrt
 
     
-######### GRAM-SCHMIDT ALGORITHM #########
+#--------------------------------   GRAM-SCHMIDT ALGORITHM   ------------------------------#
 
 #Takes as input a set of vectors, stored row-wise.
 

@@ -3,9 +3,9 @@ import numpy as np
 import pywt
 
 
-######### WAVELET TRANSFORM CLASS #########
+#--------------------------------   WAVELET TRANSFORM CLASS   ------------------------------#
 
-#DictT.dot is a method corresponding to the DWT operator.
+# DictT.dot is a method corresponding to the DWT operator.
 
 
 class DictT(object):
@@ -30,7 +30,7 @@ class DictT(object):
                 return np.concatenate(c)
 
 
-######### INVERSE WAVELET TRANSFORM CLASS #########
+#-----------------------------   INVERSE WAVELET TRANSFORM CLASS   -------------------------#
 
 
 class Dict(object):

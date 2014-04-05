@@ -1,22 +1,24 @@
 #coding:latin_1
 import numpy as np
 import pywt
-from scipy.stats import norm
 from math import sqrt
+import Classes
+from Utility import gram_schmidt
 
 
-######### MEDIAN ABSOLUTE DEVIATION #########
-#consistent estimator of the std deviation.
+#----------------------------------------   MEAN ABSOLUTE DEVIATION   --------------------------------------#
 
 def mad(data):
     return np.ma.median(np.abs(data - np.ma.median(data)))
 
 
-######### MATCHING PURSUIT - NO CRITERION #########
+#---------------------------------   MATCHING PURSUIT, ARBITRARY CRITERION   -------------------------------#
 
 def mp_arbitrary_criterion(phi, phi_t, y, n_iter):
     x = np.zeros(phi_t.dot(y).shape[0])
     err = [np.linalg.norm(y)]
+
+    atoms_list = []
 
     for k in xrange(n_iter):
         c = phi_t.dot(y - phi.dot(x))
@@ -24,23 +26,29 @@ def mp_arbitrary_criterion(phi, phi_t, y, n_iter):
         i_0 = np.argmax(abs_c)
         x[i_0] += c[i_0]
 
+        atoms_list.append(i_0)
+
         err.append(np.linalg.norm(y - phi.dot(x)))
 
     z = phi.dot(x)
-    return z, err, n_iter
+    return z, err, atoms_list
 
 
-######### MATCHING PURSUIT - STATISTICAL CRITERION #########
+#--------------------------------   MATCHING PURSUIT, STATISTICAL CRITERION   ------------------------------#
 
 def mp_stat_criterion(phi, phi_t, y, sigma):
     p = phi_t.dot(y).shape[0]
     sparse = np.zeros(p)
     err = [np.linalg.norm(y)]
 
-    # 1st MP STEP
+    atoms_list = []
+
+    # 1st MP step.
     c = phi_t.dot(y)
     abs_c = np.abs(c)
     i_0 = np.argmax(abs_c)
+
+    atoms_list.append(i_0)
 
     dic = [phi.dot(np.identity(p)[:, i_0])]  # Temporary dictionary containing evaluated atoms
     dic_arr = np.asarray(dic).T
@@ -56,30 +64,38 @@ def mp_stat_criterion(phi, phi_t, y, sigma):
         abs_c = np.abs(c)
         i_0 = np.argmax(abs_c)
 
+        atoms_list.append(i_0)
+
         x = phi.dot(np.identity(p)[:, i_0])
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
-        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
+        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x)))
 
-        s = np.random.standard_t(int(y.shape[0]-dic_arr.shape[1]), 50)
+        s = np.random.normal(0, 1, 50)
         q = np.percentile(s, 95)
 
         dic.append(x)
         dic_arr = np.asarray(dic).T
         #print Dic_Arr.shape, i_0, C[i_0], err[-1]
 
-    return phi.dot(sparse), err, dic_arr.shape[1]
+    del atoms_list[-1]
+
+    return phi.dot(sparse), err, atoms_list
 
 
-######### ORTHOGONAL MATCHING PURSUIT - STAT CRITERION #########
+#----------------------------   ORTHOGONAL MATCHING PURSUIT, STATISTICAL CRITERION   -----------------------#
 
 def omp_stat_criterion(phi, phi_t, y, sigma):
     p = phi_t.dot(y).shape[0]
     sparse = np.zeros(p)
     err = [np.linalg.norm(y)]
 
+    atoms_list = []
+
     c = phi_t.dot(y)
     abs_c = np.abs(c)
     i_0 = np.argmax(abs_c)
+
+    atoms_list.append(i_0)
 
     dic = [phi.dot(np.identity(p)[:, i_0])]
     dic_arr = np.asarray(dic).T
@@ -96,31 +112,39 @@ def omp_stat_criterion(phi, phi_t, y, sigma):
         abs_c = np.abs(c)
         i_0 = np.argmax(abs_c)
 
+        atoms_list.append(i_0)
+
         x = phi.dot(np.identity(p)[:, i_0])
 
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
-        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
+        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x)))
 
-        s = np.random.standard_t(int(y.shape[0]-dic_arr.shape[1]), 50)
+        s = np.random.normal(0, 1, 50)
         q = np.percentile(s, 95)
 
         dic.append(x)
         dic_arr = np.asarray(dic).T
         #print Dic_Arr.shape, i_0, C[i_0], err[-1]
 
-    return phi.dot(sparse), err, dic_arr.shape[1]
+    del atoms_list[-1]
+
+    return phi.dot(sparse), err, atoms_list
 
 
-######### MP, OMP - STAT CRIT. W/ ENDOGENOUS VARIANCE  #########
+#-----------------------------   MP & OMP, STAT CRITERION, /W ENDOGENOUS VARIANCE   ------------------------#
 
 def mp_stat_endogen_var(phi, phi_t, y):
     p = phi_t.dot(y).shape[0]
     sparse = np.zeros(p)
     err = [np.linalg.norm(y)]
 
+    atoms_list = []
+
     c = phi_t.dot(y)
     abs_c = np.abs(c)
     i_0 = np.argmax(abs_c)
+
+    atoms_list.append(i_0)
 
     dic = [phi.dot(np.identity(p)[:, i_0])]
     dic_arr = np.asarray(dic).T
@@ -135,13 +159,15 @@ def mp_stat_endogen_var(phi, phi_t, y):
         abs_c = np.abs(c)
         i_0 = np.argmax(abs_c)
 
+        atoms_list.append(i_0)
+
         x = phi.dot(np.identity(p)[:, i_0])
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
 
         #Estimating residual std. deviation, using OLS variance estimator s²
         s = sqrt(y.T.dot(y-h.dot(y))/(y.shape[0]-dic_arr.shape[1]))
 
-        t = np.abs(x.T.dot(y-h.dot(y)))/(s*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
+        t = np.abs(x.T.dot(y-h.dot(y)))/(s*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x)))
 
         t_dist = np.random.standard_t(int(y.shape[0]-dic_arr.shape[1]), 50)
         q = np.percentile(t_dist, 95)
@@ -151,7 +177,9 @@ def mp_stat_endogen_var(phi, phi_t, y):
         dic.append(x)
         dic_arr = np.asarray(dic).T
 
-    return phi.dot(sparse), err, dic_arr.shape[1]
+    del atoms_list[-1]
+
+    return phi.dot(sparse), err, atoms_list
 
 
 def omp_stat_endogen_var(phi, phi_t, y):
@@ -159,9 +187,13 @@ def omp_stat_endogen_var(phi, phi_t, y):
     sparse = np.zeros(p)
     err = [np.linalg.norm(y)]
 
+    atoms_list = []
+
     c = phi_t.dot(y)
     abs_c = np.abs(c)
     i_0 = np.argmax(abs_c)
+
+    atoms_list.append(i_0)
 
     dic = [phi.dot(np.identity(p)[:, i_0])]
     dic_arr = np.asarray(dic).T
@@ -178,13 +210,15 @@ def omp_stat_endogen_var(phi, phi_t, y):
         abs_c = np.abs(c)
         i_0 = np.argmax(abs_c)
 
+        atoms_list.append(i_0)
+
         x = phi.dot(np.identity(p)[:, i_0])
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
 
         #Estimating residual std. deviation, using OLS variance estimator s²
         sigma_est = sqrt(y.T.dot(y-h.dot(y))/(y.shape[0]-dic_arr.shape[1]))
 
-        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma_est*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
+        t = np.abs(x.T.dot(y-h.dot(y)))/(sigma_est*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x)))
 
         t_dist = np.random.standard_t(int(y.shape[0]-dic_arr.shape[1]), 50)
         q = np.percentile(t_dist, 95)
@@ -194,11 +228,13 @@ def omp_stat_endogen_var(phi, phi_t, y):
         dic.append(x)
         dic_arr = np.asarray(dic).T
 
-    return phi.dot(sparse), err, dic_arr.shape[1]
+    del atoms_list[-1]
+
+    return phi.dot(sparse), err, atoms_list
 
 
-######### HARD THRESHOLDING #########
-#a) N-largest Hard Thresholding : verifies same sparsity constraint as the Matching Pursuit solution.
+#--------------------------------------------   HARD THRESHOLDING   ----------------------------------------#
+# N-largest Hard Thresholding : verifies same sparsity constraint as the Matching Pursuit solution.
 
 def hard_thresholding(phi, phi_t, y, n_thresh):
 
@@ -207,51 +243,100 @@ def hard_thresholding(phi, phi_t, y, n_thresh):
     c = pywt.thresholding.hard(c, thr)
     return phi.dot(c)
 
-#b) Hard Thresholding, using MP on pre-experiment noise :
-# - We select atoms describing noise implementing a MP on y1 (signal pre-experiment)
-# - we operate a hard thresholding by removing those from our explanatory model
 
-#ONLY WORKS FOR TWO SIGNALS OF IDENTICAL SIZES.
+#--------------------------------------------   GOODNESS OF FIT   ------------------------------------------#
+
+def classic_r2(level, name_1, name_2, algorithm, y, sigma, orth="no"):
+    dic_t = Classes.DictT(level=level, name=name_1)
+    mat_t_1 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_1 = gram_schmidt(mat_t_1.T).T
+    mat_t_1 /= np.sqrt(np.sum(mat_t_1 ** 2, axis=0))
+
+    dic_t = Classes.DictT(level=level, name=name_2)
+    mat_t_2 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_2 = gram_schmidt(mat_t_2.T).T
+    mat_t_2 /= np.sqrt(np.sum(mat_t_2 ** 2, axis=0))
+
+    z_1, err_1, n_1 = algorithm(mat_t_1.T, mat_t_1, y, sigma)
+    z_2, err_2, n_2 = algorithm(mat_t_2.T, mat_t_2, y, sigma)
+
+    return np.var(z_1)/np.var(y), np.var(z_2)/np.var(y)
 
 
-def hard_thresholding_early_experiment(phi, phi_t, early_signal, currnt_signal):
-    if early_signal.shape[0] == currnt_signal.shape[0]:
+def ajusted_r2(level, name_1, name_2, algorithm, y, sigma, orth="no"):
+    dic_t = Classes.DictT(level=level, name=name_1)
+    mat_t_1 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_1 = gram_schmidt(mat_t_1.T).T
+    mat_t_1 /= np.sqrt(np.sum(mat_t_1 ** 2, axis=0))
 
-        p = phi_t.dot(early_signal).shape[0]
-        sigma = float(sqrt(np.var(early_signal)))
-        sparse = np.zeros(p)
-        indexes = []
+    dic_t = Classes.DictT(level=level, name=name_2)
+    mat_t_2 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_2 = gram_schmidt(mat_t_2.T).T
+    mat_t_2 /= np.sqrt(np.sum(mat_t_2 ** 2, axis=0))
 
-        c = phi_t.dot(early_signal)
-        abs_c = np.abs(c)
-        i_0 = np.argmax(abs_c)
-        indexes.append(i_0)
+    z_1, err_1, n_1 = algorithm(mat_t_1.T, mat_t_1, y, sigma)
+    z_2, err_2, n_2 = algorithm(mat_t_2.T, mat_t_2, y, sigma)
 
-        dic = [phi.dot(np.identity(p)[:, i_0])]
-        dic_arr = np.asarray(dic).T
-        t, q = (2, 1)
+    r2_1 = np.var(z_1)/np.var(y)
+    r2_2 = np.var(z_2)/np.var(y)
 
-        while t > q:
+    return r2_1 - (1 - r2_1)*len(n_1)/(y.size-len(n_1)-1), r2_2 - (1 - r2_2)*len(n_2)/(y.size-len(n_2)-1)
 
-            sparse[i_0] += c[i_0]
 
-            c = phi_t.dot(early_signal - phi.dot(sparse))
-            abs_c = np.abs(c)
-            i_0 = np.argmax(abs_c)
-            indexes.append(i_0)
+#-------------------------------------------   DICTIONARY TESTING   ----------------------------------------#
 
-            x = phi.dot(np.identity(p)[:, i_0])
-            h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
-            t = np.abs(x.T.dot(early_signal-h.dot(early_signal)))/(sigma*sqrt(np.linalg.norm(x)-x.T.dot(h).dot(x)))
+def dictionary_testing(level, name_1, name_2, algorithm, y, sigma, orth="no"):
 
-            s = np.random.standard_t(int(early_signal.shape[0]-dic_arr.shape[1])-1, 50)
-            q = np.percentile(s, 95)
+    dic_t = Classes.DictT(level=level, name=name_1)
+    mat_t_1 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_1 = gram_schmidt(mat_t_1.T).T
+    mat_t_1 /= np.sqrt(np.sum(mat_t_1 ** 2, axis=0))
 
-            dic.append(x)
-            dic_arr = np.asarray(dic).T
+    dic_t = Classes.DictT(level=level, name=name_2)
+    mat_t_2 = dic_t.dot(np.identity(y.size))
+    if orth == "yes":
+        mat_t_2 = gram_schmidt(mat_t_2.T).T
+    mat_t_2 /= np.sqrt(np.sum(mat_t_2 ** 2, axis=0))
 
-        indexes.pop()
-        return currnt_signal-phi.dot(sparse)
+    z_1, err_1, n_1 = algorithm(mat_t_1.T, mat_t_1, y, sigma)
+    z_2, err_2, n_2 = algorithm(mat_t_2.T, mat_t_2, y, sigma)
+
+    print "R2, Model 1 :" + str(np.var(z_1)/(np.var(y)))
+    print "R2, Model 2 :" + str(np.var(z_2)/(np.var(y)))
+    print "1-Sigma^2 : " + str(1-pow(sigma, 2)/np.var(y))
+
+    if len(n_1) == len(n_2):
+        print "Model have same the same number of parameters.\n"
+        print "Null hypothesis : first model fits better the data.\n"
+        f_test = pow(err_1[-1], 2)/pow(err_2[-1], 2)
+        s = np.random.f(y.size-len(n_1), y.size-len(n_2), 50)
+        q = np.percentile(s, 95)
+        print "F-statistic : " + str(f_test)
+        print "95th-quantile : " + str(q)
+
+    if len(n_2) > len(n_1):
+        print "Model 2 has a larger number of parameters than 1.\n"
+        print "Null hypothesis : most complex model fits better the data.\n"
+        f_test = (pow(err_1[-1], 2) - pow(err_2[-1], 2))*(y.size-len(n_2))
+        f_test /= pow(err_2[-1], 2)*(len(n_2)-len(n_1))
+
+        s = np.random.f(len(n_2)-len(n_1), y.size-len(n_2), 50)
+        q = np.percentile(s, 95)
+        print "F-statistic : " + str(f_test)
+        print "95th-quantile : " + str(q)
 
     else:
-        return "Shapes dot not match. The present algorithm cannot be implemented."
+        print "Model 1 has a larger number of parameters than 2."
+        print "Null hypothesis : most complex model fits better the data.\n"
+        f_test = (pow(err_2[-1], 2) - pow(err_1[-1], 2))*(y.size-len(n_1))
+        f_test /= pow(err_1[-1], 2)*(len(n_1)-len(n_2))
+
+        s = np.random.f(len(n_1)-len(n_2), y.size-len(n_1), 50)
+        q = np.percentile(s, 95)
+        print "F-statistic : " + str(f_test)
+        print "95th-quantile : " + str(q)
