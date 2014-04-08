@@ -5,9 +5,9 @@ from Utility import *
 import timeit
 from Classes import *
 import matplotlib.pyplot as plt
-from scipy import stats
-#from mpltools import style
-#style.use('ggplot')
+import statsmodels.api as sm
+from mpltools import style
+style.use('ggplot')
 
 #----------------------------------------   1. CHARGING DATA   --------------------------------------#
 
@@ -42,7 +42,7 @@ fig = plt.figure(1)
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
 ax1.plot(y2, '#585858', label='Noisy signal - during experiment')
 ax1.plot(z_mp_stat, '#FE2E2E', lw=2, label='Denoised: MP, statistical criterion')
-plt.title('Signal denoising - ' + wave_name + ' wavelets, full-level decomposition.')
+#plt.title('Signal denoising - ' + wave_name + ' wavelets, full-level decomposition.')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 
@@ -53,7 +53,7 @@ plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 plt.tight_layout()
 
-#plt.savefig("Image.pdf", bbox_inches='tight')
+#plt.savefig("Image_1.pdf", bbox_inches='tight')
 
 #----------------------------------   4. COMPARING MP & OMP RESULTS   -------------------------------#
 
@@ -205,21 +205,40 @@ plt.tight_layout()
 
 # -----------------------------------  B.1. Quantile-Quantile Plot  ---------------------------------#
 
+
+# MP Outputs
+
 fig = plt.figure()
 
-for i in xrange(1, 7):
-    WaveT = DictT(level=None, name='db'+str(i))
+for i in xrange(1, 5):
+    ax = fig.add_subplot(220+i)
+    WaveT = DictT(level=None, name='db'+str(2*i-1))
     MatT = WaveT.dot(np.identity(y2.size))
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
-
     Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
-    stats.probplot(y2-Z, dist="norm", plot=plt)
 
-#plt.show()
+    sm.qqplot(y2-Z, line='s', ax=ax)
+
+    txt = ax.text(-2.8, ax.get_ylim()[1] * 0.9, 'Daubechies '+str(2*i-1),
+                  fontsize=12, color='#B40431', verticalalignment='top')
+    txt.set_bbox(dict(facecolor='#F5A9A9', alpha=1))
+
+plt.tight_layout()
+#plt.savefig("QQPlot.pdf", bbox_inches='tight')
+
+# Pre-experiment acquisitions
+
+fig = plt.figure()
+sm.qqplot(y1, line='s')
+
+txt = plt.text(-2.8, 0, 'Pre-experiment signal',
+              fontsize=12, color='#B40431', verticalalignment='top')
+txt.set_bbox(dict(facecolor='#F5A9A9', alpha=1))
+
+plt.savefig("QQPlot-y1.pdf", bbox_inches='tight')
+
 
 # ----------------------------------  B.2. Kolmogorov-Smirnoff Test  --------------------------------#
-
-Gauss_Noise = np.random.normal(0, np.var(y1), 1000)
 
 for i in xrange(1, 7):
     WaveT = DictT(level=5, name='db'+str(i))
@@ -227,7 +246,10 @@ for i in xrange(1, 7):
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
 
     Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
-    print stats.ks_2samp(Gauss_Noise, y2 - Z)
+    print sm.stats.diagnostic.kstest_normal(y2-Z)
+
+print "\n"
+print sm.stats.diagnostic.kstest_normal(y1)
 
 
 #-------------------------------------   9. ENDOGENOUS VARIANCE  ------------------------------------#
@@ -240,22 +262,24 @@ z_omp_end, err_omp_end, n_omp_end = omp_stat_endogen_var(BasisT.T, BasisT, y2)
 
 fig = plt.figure()
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y2, '#585858', label='Noisy - during experiment')
-ax1.plot(z_mp_end, '#FF66CC', lw=2, label='Denoised: MP, endo. variance : ' + str(len(n_mp_end)) + ' iter.')
-ax1.plot(z_mp_stat, '#660066', ls='--', lw=3, label='Denoised: MP, exog. variance : ' + str(len(n_mp_stat)) + ' iter.')
-plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
+ax1.plot(y2, '#585858', label='Noisy')
+ax1.plot(z_mp_end, '#FF66CC', lw=2, label='MP, endo. variance : ' + str(len(n_mp_end)) + ' iter.')
+ax1.plot(z_mp_stat, '#660066', ls='--', lw=3, label='MP, exog. variance : ' + str(len(n_mp_stat)) + ' iter.')
+#plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 
 ax2 = fig.add_subplot(212, xlabel='Time (ms)', ylabel='MEG')
-ax2.plot(y2, '#585858', label='Noisy - during experiment')
-ax2.plot(z_omp_end, '#FF9966', lw=2, label='Denoised: OMP, endo. variance : ' + str(len(n_omp_end)) + ' iter.')
+ax2.plot(y2, '#585858', label='Noisy')
+ax2.plot(z_omp_end, '#FF9966', lw=2, label='OMP, endo. variance : ' + str(len(n_omp_end)) + ' iter.')
 ax2.plot(z_omp_stat, '#8F2400', ls='--', lw=3,
-         label='Denoised: OMP, exog. variance : ' + str(len(n_omp_stat)) + ' iter.')
+         label='OMP, exog. variance : ' + str(len(n_omp_stat)) + ' iter.')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 
 plt.tight_layout()
+
+plt.savefig("Endog_Variance.pdf", bbox_inches='tight')
 
 # Associated log-decrement results
 
@@ -263,38 +287,78 @@ fig = plt.figure()
 ax1 = fig.add_subplot(211, xlabel='Atoms included', ylabel='Log-Error')
 ax1.plot(map(math.log, err_mp_end), '#FF66CC', lw=2, label='MP, endo. var.')
 ax1.plot(map(math.log, err_mp_stat), '#660066', ls='--', lw=3, label='MP, exog. var.')
-plt.title('Log-decrement results')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
+#plt.title('Log-decrement results')
+plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
 
 ax2 = fig.add_subplot(212, xlabel='Atoms included', ylabel='Log-Error')
-ax2.plot(map(math.log, err_omp_end), '#FF9966', lw=2, label='OMP stat, endo. var.')
-ax2.plot(map(math.log, err_omp_stat), '#8F2400', ls='--', lw=3, label='OMP stat, exog. var.')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
+ax2.plot(map(math.log, err_omp_end), '#FF9966', lw=2, label='OMP, endo. var.')
+ax2.plot(map(math.log, err_omp_stat), '#8F2400', ls='--', lw=3, label='OMP, exog. var.')
+plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
 plt.tight_layout()
+
+plt.savefig("Endog_Variance_Log_Results.pdf", bbox_inches='tight')
 
 #------------------------------------   10. DICTIONARY SELECTION  -----------------------------------#
 
 #------------------------------------   A. GOODNESS OF FIT : R2  ------------------------------------#
-# We first evaluate classic and ajusted R2 obtained via OMP algorithm.
+# We compute classic and ajusted R2 obtained via OMP algorithm, for an entire wavelet
+# family. Results are presented in the following histogram.
 
-print "\n-----------------CLASSIC R2------------------------\n"
 
-print classic_r2(level=None, name_1='db1', name_2='db6',
-                 algorithm=omp_stat_criterion,
-                 y=y2, sigma=math.sqrt(np.var(y1)), orth='no')
+fig = plt.figure()
 
-print "\n-----------------CLASSIC R2------------------------\n"
+r2_seq = []
+r2_seq_bis = []
+wvlist = pywt.wavelist('db')
 
-print ajusted_r2(level=None, name_1='db1', name_2='db6',
-                 algorithm=omp_stat_criterion,
-                 y=y2, sigma=math.sqrt(np.var(y1)), orth='no')
+ax1 = fig.add_subplot(211, ylabel='R2')
+ax2 = fig.add_subplot(212, xlabel='Daubechies wavelets', ylabel='Ajusted R2')
+
+for a in wvlist:
+    r2_seq.append(classic_r2(level=None, name_1=a, algorithm=omp_stat_criterion,
+                  y=y2, sigma=math.sqrt(np.var(y1)), orth='no')[0])
+    r2_seq_bis.append(ajusted_r2(level=None, name_1=a, algorithm=omp_stat_criterion,
+                      y=y2, sigma=math.sqrt(np.var(y1)), orth='no')[0])
+
+r2_dict = dict(zip(wvlist, r2_seq))
+r2_dict_bis = dict(zip(wvlist, r2_seq_bis))
+
+ax1.bar(range(len(r2_dict)), r2_dict.values())
+ax1.set_xticks(range(len(r2_dict)))
+L = []
+for a in r2_dict.keys():
+    L.append(a[2:])
+ax1.set_xticklabels(L)
+x1, x2, y1, y2 = ax1.axis()
+ax1.axis((x1, x2, 0.84, 0.96))
+
+ax2.bar(range(len(r2_dict_bis)), r2_dict_bis.values(), color="#FA5858")
+ax2.set_xticks(range(len(r2_dict)))
+
+L = []
+for a in r2_dict_bis.keys():
+    L.append(a[2:])
+ax2.set_xticklabels(L)
+x1, x2, y1, y2 = ax2.axis()
+ax2.axis((x1, x2, 0.84, 0.96))
+
+plt.tight_layout()
+
+plt.show()
+
 
 #---------------------------------   B. MODEL COMPARISON : F-TEST  ----------------------------------#
 
 print "\n-----------------TESTING MODELS------------------------\n"
 
-dictionary_testing(level=5, name_1='db1', name_2='db6', algorithm=omp_stat_criterion,
-                   y=y2, sigma=math.sqrt(np.var(y1)), orth="yes")
+
+name_1 = 'db'+str(6)
+name_2 = 'db'+str(14)
+print "Testing " + name_1 + " and " + name_2 + "..."
+dictionary_testing(level=5, name_1=name_1, name_2=name_2, algorithm=omp_stat_criterion,
+                   y=y2, sigma=math.sqrt(np.var(y1)), orth="no")
+
+print "\n"
 
 
 plt.show()
