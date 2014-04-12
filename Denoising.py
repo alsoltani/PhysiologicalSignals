@@ -1,29 +1,39 @@
 #coding:latin_1
 import math
-from Functions import *
-from Utility import *
-import timeit
-from Classes import *
-import matplotlib.pyplot as plt
 import statsmodels.api as sm
+import matplotlib.pyplot as plt
 from mpltools import style
+import timeit
+from Functions import *
+from Classes import *
+
 style.use('ggplot')
 
-#----------------------------------------   1. CHARGING DATA   --------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#---------------------------------------------   1. CHARGING DATA   -------------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 data = np.load("data_cond1.npy")
 times = np.load("times_cond1.npy")
 
 times *= 1e3
-timesD = times[180:360]  # We only denoise between 0 and 300 sec, during the experiment
+
+# We only denoise between 0 and 300 sec, during the experiment.
+timesD = times[180:360]
 timesD1 = times[:180]
 
 y = data[100, :]
-y1 = y[:180]  # Raw signal before the experiment
-y2 = y[180:180+256]  # signal during the experiment
 
-#-------------------------------------   2. DICTIONARY PARAMETERS   ---------------------------------#
-    
+# Signal before the experiment.
+y1 = y[:180]
+
+# Signal during the experiment.
+y2 = y[180:180+256]
+
+#--------------------------------------------------------------------------------------------------------------#
+#------------------------------------------   2. DICTIONARY PARAMETERS   --------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+
 wave_name = 'db6'
 wave_level = None
 PhiT = DictT(level=wave_level, name=wave_name)
@@ -32,7 +42,9 @@ Phi = Dict(sizes=PhiT.sizes, name=PhiT.name)
 BasisT = PhiT.dot(np.identity(y2.size))
 BasisT /= np.sqrt(np.sum(BasisT ** 2, axis=0))
 
-#--------------------   3. COMPARING MP RESULTS, W/ & W/O STATISTICAL CRITERION   -------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#-------------------------   3. COMPARING MP RESULTS, W/ & W/O STATISTICAL CRITERION   ------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 z_mp_arb, err_mp_arb, n_mp_arb = mp_arbitrary_criterion(BasisT.T, BasisT, y2, 15)
 
@@ -42,7 +54,7 @@ fig = plt.figure(1)
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
 ax1.plot(y2, '#585858', label='Noisy signal - during experiment')
 ax1.plot(z_mp_stat, '#FE2E2E', lw=2, label='Denoised: MP, statistical criterion')
-#plt.title('Signal denoising - ' + wave_name + ' wavelets, full-level decomposition.')
+plt.title('Signal denoising - ' + wave_name + ' wavelets, full-level decomposition.')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 
@@ -55,7 +67,9 @@ plt.tight_layout()
 
 #plt.savefig("Image_1.pdf", bbox_inches='tight')
 
-#----------------------------------   4. COMPARING MP & OMP RESULTS   -------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#---------------------------------------   4. COMPARING MP & OMP RESULTS   ------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 z_omp_stat, err_omp_stat, n_omp_stat = omp_stat_criterion(BasisT.T, BasisT, y2, math.sqrt(np.var(y1)))
 
@@ -73,10 +87,10 @@ ax2.plot(map(math.log, err_omp_stat), '#6699FF', lw=2, label='OMP')
 ax2.plot(map(math.log, err_mp_stat), '#B20000', ls='--', lw=3, label='MP')
 plt.title('Log-decrement results')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
-plt.tight_layout()
 
-
-#------------------------   5. COMPARING CLASSIC & ORTHONORMALIZED DICTIONARIES  --------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#-----------------------------   5. COMPARING CLASSIC & ORTHONORMALIZED DICTIONARIES  -------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 start = timeit.default_timer()
 
@@ -106,16 +120,21 @@ plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.tight_layout()
 
 
-#-----------------------------------   6. LOG-DECREMENTS RESULTS  -----------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#----------------------------------------   6. LOG-DECREMENTS RESULTS  ----------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 # Let us compare wavelet dictionaries within the Daubechies family,
 # using classic and orthonormalized dictionaries.
 
+fig = plt.figure()
 
-#--------------- A. CLASSIC DB DICTIONARY ---------------#
+
+#-----------------------------------------   A. CLASSIC DB DICTIONARY  ----------------------------------------#
 
 ax1 = fig.add_subplot(211, xlabel='Atoms included', ylabel='Log-Error')
-for i in xrange(1, 7):
+for i in xrange(7, 14):
+    print "Stage " + str(i) + "..."
     WaveT = DictT(level=None, name='db'+str(i))
     MatT = WaveT.dot(np.identity(y2.size))
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
@@ -125,12 +144,13 @@ for i in xrange(1, 7):
     ax1.plot(map(math.log, Error), lw=2, label='db'+str(i))
 
 plt.title('Log-Error decrement results - w/o Gram-Schmidt.')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
+plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
 
-#--------------- B. ORTHONORMAL DB DICTIONARY ---------------#
+
+#----------------------------------------- B. ORTHONORMAL DB DICTIONARY ---------------------------------------#
 
 ax2 = fig.add_subplot(212, xlabel='Atoms included', ylabel='Log-Error')
-for i in xrange(1, 7):
+for i in xrange(1, 21):
     WaveT = DictT(level=None, name='db'+str(i))
     MatT = gram_schmidt(WaveT.dot(np.identity(y2.size)).T).T
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
@@ -140,10 +160,14 @@ for i in xrange(1, 7):
     ax2.plot(map(math.log, Error), lw=2, label='db'+str(i))
 
 plt.title('Log-Error decrement results - w/ Gram-Schmidt.')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
+plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
 plt.tight_layout()
 
-#------------------------------   7. OMP, HARD THRESHOLDING COMPARISON  -----------------------------#
+plt.savefig("Log_Decrements_db1_to_db20.pdf", bbox_inches='tight')
+
+#--------------------------------------------------------------------------------------------------------------#
+#-----------------------------------   7. OMP, HARD THRESHOLDING COMPARISON  ----------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 # Gabriel Peyre's article states that MP /w can be equiv. to Hard Thresholding,
 # when the decomposition basis is a square orthonormal matrix.
@@ -167,43 +191,52 @@ plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 plt.tight_layout()
 
+#--------------------------------------------------------------------------------------------------------------#
+#-------------------------------------------   8. TESTING OUR MODEL  ------------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
-#--------------------------------------   8. TESTING OUR MODEL  -------------------------------------#
 
-# -------------------------------------   A.  NOISE SIMULATION   ------------------------------------#
+# ------------------------------------------   A.  NOISE SIMULATION   -----------------------------------------#
 
 # Our idea is the following : we simulate a white noise, add it to the denoised signal
 # and run the algorithms to find a new denoised signal. If the two signals match,
 # the algorithm is considered as efficient.
 
-noise = np.asarray(np.random.normal(0, np.var(y1), y2.shape[0])).T
 
-z_new = z_mp_stat+noise
-z_new_stat, err_new_stat, n_new_stat = mp_stat_criterion(BasisT.T, BasisT, z_new, math.sqrt(np.var(y1)))
+simu_z = [z_mp_stat]
+simu_err = [err_mp_stat]
+simu_n = [n_mp_stat]
+
+for i in xrange(3):
+    gaussian_noise = np.asarray(np.random.normal(0, np.var(y1), y2.shape[0])).T
+    noisy = simu_z[i] + gaussian_noise
+    zz, ee, nn = mp_stat_criterion(BasisT.T, BasisT, noisy, math.sqrt(np.var(y1)))
+    simu_z.append(zz)
+    simu_err.append(ee)
+    simu_n.append(nn)
 
 fig = plt.figure()
-ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y2, '#585858', label='Noisy signal - during experiment')
-ax1.plot(z_new_stat, '#33FF33', lw=2, label='Re-denoised: same charact. : ' + str(len(n_new_stat)) + ' iter.')
-ax1.plot(z_mp_stat, '#660000', ls='--', lw=3, label='Denoised: MP, classic dict. : ' + str(len(n_mp_stat)) + ' iter.')
-plt.title('Signal denoising - ' + wave_name + ' wavelets, full-level decomposition.')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
-plt.axis([0, 256, -5e-12, 5e-12])
+for i in xrange(3):
 
-ax2 = fig.add_subplot(212, xlabel='Time (ms)', ylabel='MEG')
-ax2.plot(z_new_stat-z_mp_stat, '#585858', lw=2, label='Difference between the 2 denoised signals.')
-plt.xlabel('Time (ms)')
-plt.ylabel('MEG')
-plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
-plt.axis([0, 256, -5e-12, 5e-12])
+    ax = fig.add_subplot(221+i, xlabel='Time (ms)', ylabel='MEG')
+    ax.plot(y2, '#585858', label='Noisy signal')
+    ax.plot(simu_z[i+1], '#01DF74', lw=2,
+            label='Denoised: stage ' + str(i+1) + ', ' + str(len(simu_n[i+1])) + ' iter.')
+    ax.plot(simu_z[i], '#886A08', ls='--', lw=3,
+            label='Denoised: stage ' + str(i) + ', ' + str(len(simu_n[i])) + ' iter.')
+    plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
+    plt.axis([0, 256, -5e-12, 5e-12])
+
 plt.tight_layout()
 
+#plt.savefig("Simulation_N_Steps.pdf", bbox_inches='tight')
 
-# -------------------------------------   B.  RESIDUAL TESTING   ------------------------------------#
+
+# ------------------------------------------   B.  RESIDUAL TESTING   -----------------------------------------#
 # In this section, we test the assumption under which our residuals are gaussian.
 # We implement different tests to compare results.
 
-# -----------------------------------  B.1. Quantile-Quantile Plot  ---------------------------------#
+# ----------------------------------------  B.1. Quantile-Quantile Plot  --------------------------------------#
 
 
 # MP Outputs
@@ -232,13 +265,13 @@ fig = plt.figure()
 sm.qqplot(y1, line='s')
 
 txt = plt.text(-2.8, 0, 'Pre-experiment signal',
-              fontsize=12, color='#B40431', verticalalignment='top')
+               fontsize=12, color='#B40431', verticalalignment='top')
 txt.set_bbox(dict(facecolor='#F5A9A9', alpha=1))
 
 plt.savefig("QQPlot-y1.pdf", bbox_inches='tight')
 
 
-# ----------------------------------  B.2. Kolmogorov-Smirnoff Test  --------------------------------#
+# ---------------------------------------  B.2. Kolmogorov-Smirnoff Test  -------------------------------------#
 
 for i in xrange(1, 7):
     WaveT = DictT(level=5, name='db'+str(i))
@@ -252,7 +285,9 @@ print "\n"
 print sm.stats.diagnostic.kstest_normal(y1)
 
 
-#-------------------------------------   9. ENDOGENOUS VARIANCE  ------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#------------------------------------------   9. ENDOGENOUS VARIANCE  -----------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
 # We refine our model by considering variance as an endogenous variable,
 # using OLS estimator s².
@@ -265,7 +300,6 @@ ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
 ax1.plot(y2, '#585858', label='Noisy')
 ax1.plot(z_mp_end, '#FF66CC', lw=2, label='MP, endo. variance : ' + str(len(n_mp_end)) + ' iter.')
 ax1.plot(z_mp_stat, '#660066', ls='--', lw=3, label='MP, exog. variance : ' + str(len(n_mp_stat)) + ' iter.')
-#plt.title('Signal denoising - ' + wave_name + ' wavelets, ' + str(wave_level) + '-level decomposition.')
 plt.legend(loc='lower right', fontsize=11).get_frame().set_alpha(0)
 plt.axis([0, 256, -5e-12, 5e-12])
 
@@ -287,7 +321,6 @@ fig = plt.figure()
 ax1 = fig.add_subplot(211, xlabel='Atoms included', ylabel='Log-Error')
 ax1.plot(map(math.log, err_mp_end), '#FF66CC', lw=2, label='MP, endo. var.')
 ax1.plot(map(math.log, err_mp_stat), '#660066', ls='--', lw=3, label='MP, exog. var.')
-#plt.title('Log-decrement results')
 plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
 
 ax2 = fig.add_subplot(212, xlabel='Atoms included', ylabel='Log-Error')
@@ -298,9 +331,12 @@ plt.tight_layout()
 
 plt.savefig("Endog_Variance_Log_Results.pdf", bbox_inches='tight')
 
-#------------------------------------   10. DICTIONARY SELECTION  -----------------------------------#
 
-#------------------------------------   A. GOODNESS OF FIT : R2  ------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+#-----------------------------------------   10. DICTIONARY SELECTION  ----------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
+
+#-----------------------------------------   A. GOODNESS OF FIT : R2  -----------------------------------------#
 # We compute classic and ajusted R2 obtained via OMP algorithm, for an entire wavelet
 # family. Results are presented in the following histogram.
 
@@ -347,7 +383,7 @@ plt.tight_layout()
 plt.show()
 
 
-#---------------------------------   B. MODEL COMPARISON : F-TEST  ----------------------------------#
+#--------------------------------------   B. MODEL COMPARISON : F-TEST  ---------------------------------------#
 
 print "\n-----------------TESTING MODELS------------------------\n"
 
