@@ -4,6 +4,7 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from mpltools import style
 import timeit
+import time, sys
 from Functions import *
 from Classes import *
 
@@ -47,8 +48,8 @@ BasisT /= np.sqrt(np.sum(BasisT ** 2, axis=0))
 #------------------------------------------   SELECTING BEST DICTIONARY   -------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-# Number of samples.
-N_iter = 50
+# Number of iterations.
+N_iter = 5
 
 # Length of wavelist.
 N_list = 20
@@ -57,10 +58,14 @@ Wavelist = np.arange(1, N_list+1, 1)
 Entropy = np.zeros((N_list, N_iter))
 
 for k in xrange(N_iter):
-    print "-------ITERATION " + str(k+1) + " -------"
-
+    print "\n_____ Iteration " + str(k+1) + " _____"
     for i in Wavelist:
-        #print "Stage " + str(i) + "..."
+        print "",
+        t = 5*i
+        time.sleep(1)
+        sys.stdout.write("\rComputing entropy... %d%%" % t)
+        sys.stdout.flush()
+
         WaveT = DictT(level=None, name='db'+str(i))
         MatT = WaveT.dot(np.identity(y2.size))
         MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
@@ -70,15 +75,16 @@ for k in xrange(N_iter):
 
         Entropy[i-1, k] = shannon(x_unit)
 
-fig = plt.figure()
 Mean_Entropy = np.mean(Entropy, axis=1)
 List_Entropy = list(np.array(Mean_Entropy).reshape(-1,))
 
-plt.plot(Wavelist, List_Entropy, '-', c='#8A0829', lw=2)
+fig = plt.figure()
+plt.plot(Wavelist, List_Entropy, '-', c='#8A0829', lw=2, label='Average Entropy')
+plt.fill_between(Wavelist, List_Entropy, where=List_Entropy >= min(List_Entropy), interpolate=True, color="#FA5858")
+plt.plot(Wavelist, list(np.array(Entropy[:, 0]).reshape(-1,)), '-', c='#5882FA', lw=2, label='Entropy : Iteration 0')
 plt.ylabel("Cost Function : Shannon Entropy")
 plt.xlabel("Daubechies Wavelets")
 plt.xticks(np.arange(min(Wavelist), max(Wavelist)+1, 1))
 x1, x2, y1, y2 = plt.axis()
-plt.axis([x1, 21, y1, y2])
-plt.fill_between(Wavelist, List_Entropy, where=List_Entropy >= min(List_Entropy), interpolate=True, color="#FA5858")
+plt.axis([x1, 21, min(List_Entropy), y2])
 plt.show()
