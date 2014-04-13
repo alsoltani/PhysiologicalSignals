@@ -46,9 +46,9 @@ BasisT /= np.sqrt(np.sum(BasisT ** 2, axis=0))
 #-------------------------   3. COMPARING MP RESULTS, W/ & W/O STATISTICAL CRITERION   ------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-z_mp_arb, err_mp_arb, n_mp_arb = mp_arbitrary_criterion(BasisT.T, BasisT, y2, 15)
+x_mp_arb, z_mp_arb, err_mp_arb, n_mp_arb = mp_arbitrary_criterion(BasisT.T, BasisT, y2, 15)
 
-z_mp_stat, err_mp_stat, n_mp_stat = mp_stat_criterion(BasisT.T, BasisT, y2, math.sqrt(np.var(y1)))
+z_mp_arb, z_mp_stat, err_mp_stat, n_mp_stat = mp_stat_criterion(BasisT.T, BasisT, y2, math.sqrt(np.var(y1)))
 
 fig = plt.figure(1)
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
@@ -71,7 +71,7 @@ plt.tight_layout()
 #---------------------------------------   4. COMPARING MP & OMP RESULTS   ------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-z_omp_stat, err_omp_stat, n_omp_stat = omp_stat_criterion(BasisT.T, BasisT, y2, math.sqrt(np.var(y1)))
+x_omp_stat, z_omp_stat, err_omp_stat, n_omp_stat = omp_stat_criterion(BasisT.T, BasisT, y2, math.sqrt(np.var(y1)))
 
 fig = plt.figure(2)
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
@@ -101,7 +101,7 @@ stop = timeit.default_timer()
 print "Orthonormalization time : " + str(stop - start)
 
 
-z_omp_gstat, err_omp_gstat, n_omp_gstat = omp_stat_criterion(GBasisT.T, GBasisT, y2, math.sqrt(np.var(y1)))
+x_omp_gstat, z_omp_gstat, err_omp_gstat, n_omp_gstat = omp_stat_criterion(GBasisT.T, GBasisT, y2, math.sqrt(np.var(y1)))
 
 fig = plt.figure()
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')
@@ -139,7 +139,7 @@ for i in xrange(7, 14):
     MatT = WaveT.dot(np.identity(y2.size))
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
 
-    Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
+    X, Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
 
     ax1.plot(map(math.log, Error), lw=2, label='db'+str(i))
 
@@ -155,7 +155,7 @@ for i in xrange(1, 21):
     MatT = gram_schmidt(WaveT.dot(np.identity(y2.size)).T).T
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
 
-    Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
+    X, Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
 
     ax2.plot(map(math.log, Error), lw=2, label='db'+str(i))
 
@@ -210,7 +210,7 @@ simu_n = [n_mp_stat]
 for i in xrange(3):
     gaussian_noise = np.asarray(np.random.normal(0, np.var(y1), y2.shape[0])).T
     noisy = simu_z[i] + gaussian_noise
-    zz, ee, nn = mp_stat_criterion(BasisT.T, BasisT, noisy, math.sqrt(np.var(y1)))
+    xx, zz, ee, nn = mp_stat_criterion(BasisT.T, BasisT, noisy, math.sqrt(np.var(y1)))
     simu_z.append(zz)
     simu_err.append(ee)
     simu_n.append(nn)
@@ -248,7 +248,7 @@ for i in xrange(1, 5):
     WaveT = DictT(level=None, name='db'+str(2*i-1))
     MatT = WaveT.dot(np.identity(y2.size))
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
-    Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
+    X, Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
 
     sm.qqplot(y2-Z, line='s', ax=ax)
 
@@ -278,7 +278,7 @@ for i in xrange(1, 7):
     MatT = WaveT.dot(np.identity(y2.size))
     MatT /= np.sqrt(np.sum(MatT ** 2, axis=0))
 
-    Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
+    X, Z, Error, N = omp_stat_criterion(MatT.T, MatT, y2, math.sqrt(np.var(y1)))
     print sm.stats.diagnostic.kstest_normal(y2-Z)
 
 print "\n"
@@ -292,8 +292,8 @@ print sm.stats.diagnostic.kstest_normal(y1)
 # We refine our model by considering variance as an endogenous variable,
 # using OLS estimator s².
 
-z_mp_end, err_mp_end, n_mp_end = mp_stat_endogen_var(BasisT.T, BasisT, y2)
-z_omp_end, err_omp_end, n_omp_end = omp_stat_endogen_var(BasisT.T, BasisT, y2)
+x_mp_end, z_mp_end, err_mp_end, n_mp_end = mp_stat_endogen_var(BasisT.T, BasisT, y2)
+x_omp_end, z_omp_end, err_omp_end, n_omp_end = omp_stat_endogen_var(BasisT.T, BasisT, y2)
 
 fig = plt.figure()
 ax1 = fig.add_subplot(211, xlabel='Time (ms)', ylabel='MEG')

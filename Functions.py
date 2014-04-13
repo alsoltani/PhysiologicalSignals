@@ -1,21 +1,26 @@
 #coding:latin_1
-from math import sqrt
+from math import sqrt, log
 import numpy as np
 import pywt
 import Classes
 from Utility import gram_schmidt
 
+
 #--------------------------------------------------------------------------------------------------------------#
-#----------------------------------------   MEAN ABSOLUTE DEVIATION   -----------------------------------------#
+#--------------------------------------------   SHANNON ENTROPY   ---------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-
-def mad(data):
-    return np.ma.median(np.abs(data - np.ma.median(data)))
+def shannon(vect_unit):
+    p = 0
+    for j in xrange(vect_unit.shape[0]):
+        if vect_unit[j] != 0:
+            p += -vect_unit[j]*log(vect_unit[j], 2)
+    return p
 
 #--------------------------------------------------------------------------------------------------------------#
 #----------------------------------------   SINGLE-CHANNEL PURSUITS   -----------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
+
 
 #---------------------------------   MATCHING PURSUIT, ARBITRARY CRITERION   ----------------------------------#
 
@@ -36,7 +41,7 @@ def mp_arbitrary_criterion(phi, phi_t, y, n_iter):
         err.append(np.linalg.norm(y - phi.dot(x)))
 
     z = phi.dot(x)
-    return z, err, atoms_list
+    return x, z, err, atoms_list
 
 
 #--------------------------------   MATCHING PURSUIT, STATISTICAL CRITERION   ------------------------------#
@@ -84,7 +89,7 @@ def mp_stat_criterion(phi, phi_t, y, sigma):
 
     del atoms_list[-1]
 
-    return phi.dot(sparse), err, atoms_list
+    return sparse, phi.dot(sparse), err, atoms_list
 
 
 #----------------------------   ORTHOGONAL MATCHING PURSUIT, STATISTICAL CRITERION   -----------------------#
@@ -133,7 +138,7 @@ def omp_stat_criterion(phi, phi_t, y, sigma):
 
     del atoms_list[-1]
 
-    return phi.dot(sparse), err, atoms_list
+    return sparse, phi.dot(sparse), err, atoms_list
 
 
 #-----------------------------   MP & OMP, STAT CRITERION, /W ENDOGENOUS VARIANCE   ------------------------#
@@ -189,7 +194,7 @@ def mp_stat_endogen_var(phi, phi_t, y):
 
     del atoms_list[-1]
 
-    return phi.dot(sparse), err, atoms_list
+    return sparse, phi.dot(sparse), err, atoms_list
 
 
 def omp_stat_endogen_var(phi, phi_t, y):
@@ -244,7 +249,7 @@ def omp_stat_endogen_var(phi, phi_t, y):
 
     del atoms_list[-1]
 
-    return phi.dot(sparse), err, atoms_list
+    return sparse, phi.dot(sparse), err, atoms_list
 
 
 #--------------------------------------------------------------------------------------------------------------#
@@ -447,4 +452,4 @@ def multi_channel_mp(phi, phi_t, matrix_y, vect_sigma):
 
     del atoms_list[-1]
 
-    return phi.dot(matrix_sparse), err, atoms_list
+    return matrix_sparse, phi.dot(matrix_sparse), err, atoms_list

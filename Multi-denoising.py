@@ -55,7 +55,7 @@ BasisT /= np.sqrt(np.sum(BasisT ** 2, axis=0))
 #-------------------------------------------   3. MULTI-CHANNEL MP   ------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-z, err, n = multi_channel_mp(BasisT.T, BasisT, y_exp, std)
+x, z, err, n = multi_channel_mp(BasisT.T, BasisT, y_exp, std)
 
 fig = plt.figure()
 
