@@ -108,13 +108,13 @@ ax1.plot(cross_indexes, cross_val, '-o', c='#DF013A', lw=2)
 ax1.fill_between(cross_indexes, cross_val,
                  where=cross_val >= min(cross_val), interpolate=True, color="#F7819F")
 ax1.set_xticks(cross_indexes)
-ax1.axis((cross_indexes[0], cross_indexes[15], 0.95*min(cross_val[:15]), 1.05*max(cross_val[:15])))
+ax1.axis((cross_indexes[0], cross_indexes[-1], 0.95*min(cross_val), 1.05*max(cross_val)))
 
 ax2.plot(bic_indexes, bic_val, '-o', c='#084B8A', lw=2)
 ax2.fill_between(bic_indexes, bic_val,
                  where=bic_val >= min(bic_val), interpolate=True, color="#5882FA")
 ax2.set_xticks(bic_indexes)
-ax2.axis((bic_indexes[0], bic_indexes[15], 0.95*min(bic_val[:15]), 1.05*max(bic_val[:15])))
+ax2.axis((bic_indexes[0], bic_indexes[-1], 0.95*min(bic_val), 1.05*max(bic_val)))
 
 plt.tight_layout()
 #plt.savefig("Prints/Cross_validation.pdf", bbox_inches='tight')
