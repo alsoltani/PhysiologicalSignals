@@ -1,6 +1,6 @@
 #coding:latin_1
 import math
-
+import timeit
 import matplotlib.pyplot as plt
 from mpltools import style
 
@@ -16,15 +16,9 @@ style.use('ggplot')
 data = np.load("data_cond1.npy")
 times = np.load("times_cond1.npy")
 
-times *= 1e3
-timesD = times[180:360]
-timesD1 = times[:180]
-
-
-#--------------------------------- A. Let us use 10 different acquisitions first. -----------------------------#
-
-first = 90
-last = 100
+# Choosing the range of sensors.
+first = 0
+last = 203
 y = data[first:last, :].T
 
 # - Signal before the experiment.
@@ -33,12 +27,11 @@ y_early = data[first:last, :180].T
 # - Signal during the experiment.
 y_exp = data[first:last, 180:180+256].T
 
-
 # - Pre-experiment variance.
 std = np.zeros(y_early.shape[1])
 for i in xrange(y_early.shape[1]):
     std[i] = math.sqrt(np.var(y_early[:, i]))
-
+"""
 #--------------------------------------------------------------------------------------------------------------#
 #-----------------------------------------   2. DICTIONARY PARAMETERS   ---------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
@@ -54,8 +47,14 @@ BasisT /= np.sqrt(np.sum(BasisT ** 2, axis=0))
 #--------------------------------------------------------------------------------------------------------------#
 #-------------------------------------------   3. MULTI-CHANNEL MP   ------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
+start = timeit.default_timer()
 
 x, z, err, n = multi_channel_mp(BasisT.T, BasisT, y_exp, std)
+
+stop = timeit.default_timer()
+print str(stop - start)
+
+x_1, z_1, err_1, n_1 = multi_channel_omp(BasisT.T, BasisT, y_exp, std)
 
 fig = plt.figure()
 
@@ -93,8 +92,31 @@ x1, x2, y1, y2 = plt.axis()
 plt.axis((0, 256, y1, y2))
 
 plt.tight_layout()
+"""
+#--------------------------------------------------------------------------------------------------------------#
+#-----------------------------------------   4. DICTIONARY SELECTION   ----------------------------------------#
+#--------------------------------------------------------------------------------------------------------------#
 
+cross_val, cross_indexes = cross_validation(y_exp, std, 'db')
+bic_val, bic_indexes = bic_criterion(y_exp, std, 'db', ortho='yes')
 
-plt.savefig("Multichannel_MP_2.pdf", bbox_inches='tight')
+fig = plt.figure()
+ax1 = fig.add_subplot(211, ylabel='Cross-validation results')
+ax2 = fig.add_subplot(212, ylabel='BIC results', xlabel='Daubechies wavelets')
+
+ax1.plot(cross_indexes, cross_val, '-o', c='#DF013A', lw=2)
+ax1.fill_between(cross_indexes, cross_val,
+                 where=cross_val >= min(cross_val), interpolate=True, color="#F7819F")
+ax1.set_xticks(cross_indexes)
+ax1.axis((cross_indexes[0], cross_indexes[15], 0.95*min(cross_val[:15]), 1.05*max(cross_val[:15])))
+
+ax2.plot(bic_indexes, bic_val, '-o', c='#084B8A', lw=2)
+ax2.fill_between(bic_indexes, bic_val,
+                 where=bic_val >= min(bic_val), interpolate=True, color="#5882FA")
+ax2.set_xticks(bic_indexes)
+ax2.axis((bic_indexes[0], bic_indexes[15], 0.95*min(bic_val[:15]), 1.05*max(bic_val[:15])))
+
+plt.tight_layout()
+#plt.savefig("Prints/Cross_validation.pdf", bbox_inches='tight')
 
 plt.show()
