@@ -511,14 +511,59 @@ def bic_criterion(matrix_signal, vect_sigma, wavelet_family, ortho='no', signifi
             ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
         ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
 
-        matrix_x, matrix_z, err, n = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal, vect_sigma,
-                                                       significance_level)
+        matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
+                                                                vect_sigma, significance_level)
 
-        bic_values.append(pow(np.linalg.norm(matrix_signal-matrix_z), 2)/matrix_signal.shape[0]
-                          + len(n)*np.log(matrix_signal.shape[0])/matrix_signal.shape[0])
+        n = matrix_signal.shape[0]
+        bic_values.append(n*np.log(np.var(matrix_signal-matrix_z)) + len(atoms_list)*np.log(n))
         wavelet_indexes.append(i+1)
 
     return bic_values, wavelet_indexes
+
+
+def aicc_criterion(matrix_signal, vect_sigma, wavelet_family, ortho='no', significance_level=5):
+    aicc_values = []
+    wavelet_indexes = []
+
+    for i in xrange(len(pywt.wavelist(wavelet_family))):
+        dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
+        ortho_basis_t = dictionary_t.dot(np.identity(matrix_signal.shape[0]))
+        if ortho == 'yes':
+            ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
+        ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
+
+        matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
+                                                                vect_sigma, significance_level)
+
+        n = matrix_signal.shape[0]
+        k = len(atoms_list)
+        aicc_values.append(n*np.log(np.var(matrix_signal-matrix_z)) + k + 2*k*(k+1)/(n-k-1))
+        wavelet_indexes.append(i+1)
+
+    return aicc_values, wavelet_indexes
+
+
+def r_square(matrix_signal, vect_sigma, wavelet_family, ortho='no', significance_level=5):
+    r_sq_values = []
+    ajusted_r_sq_values = []
+    wavelet_indexes = []
+
+    for i in xrange(len(pywt.wavelist(wavelet_family))):
+        dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
+        ortho_basis_t = dictionary_t.dot(np.identity(matrix_signal.shape[0]))
+        if ortho == 'yes':
+            ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
+        ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
+
+        matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
+                                                                vect_sigma, significance_level)
+
+        r2 = np.var(matrix_z)/np.var(matrix_signal)
+        r_sq_values.append(r2)
+        ajusted_r_sq_values.append(r2 - (1-r2)*len(atoms_list)/(matrix_signal.shape[0]-len(atoms_list)-1))
+        wavelet_indexes.append(i+1)
+
+    return r_sq_values, ajusted_r_sq_values, wavelet_indexes
 
 
 #--------------------------------------------------------------------------------------------------------------#

@@ -31,12 +31,12 @@ y_exp = data[first:last, 180:180+256].T
 std = np.zeros(y_early.shape[1])
 for i in xrange(y_early.shape[1]):
     std[i] = math.sqrt(np.var(y_early[:, i]))
-"""
+
 #--------------------------------------------------------------------------------------------------------------#
 #-----------------------------------------   2. DICTIONARY PARAMETERS   ---------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-wave_name = 'db6'
+wave_name = 'db5'
 wave_level = None
 PhiT = DictT(level=wave_level, name=wave_name)
 Phi = Dict(sizes=PhiT.sizes, name=PhiT.name)
@@ -58,65 +58,90 @@ x_1, z_1, err_1, n_1 = multi_channel_omp(BasisT.T, BasisT, y_exp, std)
 
 fig = plt.figure()
 
-sen1 = 0
-sen2 = 2
-sen3 = 4
-sen4 = 6
+sen1 = 101
+sen2 = 103
+sen3 = 105
+sen4 = 107
 
 ax1 = fig.add_subplot(221, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y_exp[:, sen1], '#585858', label='Noisy signal - sensor ' + str(first+sen1))
-ax1.plot(z[:, sen1], '#045FB4', lw=2, label='Denoised: MP :' + str(len(n)) + " atoms.")
-plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
+ax1.plot(y_exp[:, sen1], '#FA5882', label='Noisy - sensor ' + str(first+sen1))
+ax1.plot(z[:, sen1], '#045FB4', lw=2, label='Denoised: ' + str(len(n)) + " atoms.")
+plt.legend(loc='lower right', fontsize=10).get_frame().set_alpha(0)
 x1, x2, y1, y2 = plt.axis()
 plt.axis((0, 256, y1, y2))
 
 ax1 = fig.add_subplot(222, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y_exp[:, sen2], '#585858', label='Noisy signal - sensor ' + str(first+sen2))
-ax1.plot(z[:, sen2], '#0174DF', lw=2, label='Denoised: MP :' + str(len(n)) + " atoms.")
-plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
+ax1.plot(y_exp[:, sen2], '#FA5882', label='Noisy - sensor ' + str(first+sen2))
+ax1.plot(z[:, sen2], '#045FB4', lw=2, label='Denoised: ' + str(len(n)) + " atoms.")
+plt.legend(loc='lower right', fontsize=10).get_frame().set_alpha(0)
 x1, x2, y1, y2 = plt.axis()
 plt.axis((0, 256, y1, y2))
 
 ax1 = fig.add_subplot(223, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y_exp[:, sen3], '#585858', label='Noisy signal - sensor ' + str(first+sen3))
-ax1.plot(z[:, sen3], '#0080FF', lw=2, label='Denoised: MP :' + str(len(n)) + " atoms.")
-plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
+ax1.plot(y_exp[:, sen3], '#FA5882', label='Noisy - sensor ' + str(first+sen3))
+ax1.plot(z[:, sen3], '#045FB4', lw=2, label='Denoised: ' + str(len(n)) + " atoms.")
+plt.legend(loc='upper right', fontsize=10).get_frame().set_alpha(0)
 x1, x2, y1, y2 = plt.axis()
 plt.axis((0, 256, y1, y2))
 
 ax1 = fig.add_subplot(224, xlabel='Time (ms)', ylabel='MEG')
-ax1.plot(y_exp[:, sen4], '#585858', label='Noisy signal - sensor ' + str(first+sen4))
-ax1.plot(z[:, sen4], '#2E9AFE', lw=2, label='Denoised: MP :' + str(len(n)) + " atoms.")
-plt.legend(loc='upper right', fontsize=11).get_frame().set_alpha(0)
+ax1.plot(y_exp[:, sen4], '#FA5882', label='Noisy - sensor ' + str(first+sen4))
+ax1.plot(z[:, sen4], '#045FB4', lw=2, label='Denoised: ' + str(len(n)) + " atoms.")
+plt.legend(loc='upper right', fontsize=10).get_frame().set_alpha(0)
 x1, x2, y1, y2 = plt.axis()
 plt.axis((0, 256, y1, y2))
 
 plt.tight_layout()
-"""
+
+#plt.savefig("Prints/Multi_channel.pdf", bbox_inches='tight')
+
 #--------------------------------------------------------------------------------------------------------------#
 #-----------------------------------------   4. DICTIONARY SELECTION   ----------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
 cross_val, cross_indexes = cross_validation(y_exp, std, 'db')
-bic_val, bic_indexes = bic_criterion(y_exp, std, 'db', ortho='yes')
+aicc_val, aicc_indexes = aicc_criterion(y_exp, std, 'db', ortho='yes')
+
+# As we only seek for the difference in AICC values, we add a constant to plot positive values.
+aicc_val_relative = map(lambda x: x+15000, aicc_val)
+
+r_sq, ajus_r_sq, r_sq_indexes = r_square(y_exp, std, 'db', ortho='yes')
 
 fig = plt.figure()
-ax1 = fig.add_subplot(211, ylabel='Cross-validation results')
-ax2 = fig.add_subplot(212, ylabel='BIC results', xlabel='Daubechies wavelets')
+ax = fig.add_subplot(211, ylabel='Cross-validation results' , xlabel='Daubechies wavelets')
 
-ax1.plot(cross_indexes, cross_val, '-o', c='#DF013A', lw=2)
-ax1.fill_between(cross_indexes, cross_val,
-                 where=cross_val >= min(cross_val), interpolate=True, color="#F7819F")
-ax1.set_xticks(cross_indexes)
-ax1.axis((cross_indexes[0], cross_indexes[-1], 0.95*min(cross_val), 1.05*max(cross_val)))
-
-ax2.plot(bic_indexes, bic_val, '-o', c='#084B8A', lw=2)
-ax2.fill_between(bic_indexes, bic_val,
-                 where=bic_val >= min(bic_val), interpolate=True, color="#5882FA")
-ax2.set_xticks(bic_indexes)
-ax2.axis((bic_indexes[0], bic_indexes[-1], 0.95*min(bic_val), 1.05*max(bic_val)))
-
+ax.plot(cross_indexes, cross_val, '-o', c='#DF013A', lw=2)
+ax.fill_between(cross_indexes, cross_val,
+                where=cross_val >= min(cross_val), interpolate=True, color="#F7819F")
+ax.set_xticks(cross_indexes)
+ax.axis((cross_indexes[0], cross_indexes[-1], 0.95*min(cross_val), 1.05*max(cross_val)))
 plt.tight_layout()
+
 #plt.savefig("Prints/Cross_validation.pdf", bbox_inches='tight')
+
+fig = plt.figure()
+ax = fig.add_subplot(211, ylabel='AICC results', xlabel='Daubechies wavelets')
+ax.plot(aicc_indexes, aicc_val_relative, '-o', c='#084B8A', lw=2)
+ax.fill_between(aicc_indexes, aicc_val_relative,
+                where=aicc_val_relative >= min(aicc_val_relative), interpolate=True, color="#5882FA")
+ax.set_xticks(aicc_indexes)
+ax.axis((aicc_indexes[0], aicc_indexes[-1], min(aicc_val_relative), max(aicc_val_relative)))
+plt.tight_layout()
+
+#plt.savefig("Prints/AICC_results.pdf", bbox_inches='tight')
+
+fig = plt.figure()
+ax1 = fig.add_subplot(211, ylabel='R2')
+ax1.bar(r_sq_indexes, r_sq, color='#FA5858')
+ax1.set_xticks(r_sq_indexes)
+ax1.axis((r_sq_indexes[0], r_sq_indexes[-1], 0.995*min(r_sq), 1.005*max(r_sq)))
+
+ax2 = fig.add_subplot(212, ylabel='Ajusted R2', xlabel='Daubechies wavelets')
+ax2.bar(r_sq_indexes, ajus_r_sq)
+ax2.set_xticks(r_sq_indexes)
+ax2.axis((r_sq_indexes[0], r_sq_indexes[-1], 0.995*min(ajus_r_sq), 1.005*max(ajus_r_sq)))
+plt.tight_layout()
+
+#plt.savefig("Prints/R2_results.pdf", bbox_inches='tight')
 
 plt.show()
