@@ -1,9 +1,8 @@
 #coding:latin_1
-from math import sqrt, log, floor
+from math import sqrt, floor
 import numpy as np
 import pywt
 import Classes
-from Utility import gram_schmidt
 
 
 #--------------------------------------------------------------------------------------------------------------#
@@ -250,7 +249,7 @@ def hard_thresholding(phi, phi_t, y, n_thresh):
     c = phi_t.dot(y)
     thr = sorted(np.abs(c), reverse=True)[n_thresh-1]
     c = pywt.thresholding.hard(c, thr)
-    return phi.dot(c)
+    return phi.dot(c), np.flatnonzero(c).tolist()
 
 
 #--------------------------------------------------------------------------------------------------------------#
@@ -299,6 +298,9 @@ def multi_channel_mp(phi, phi_t, matrix_y, vect_sigma, significance_level=5):
         x = phi.dot(np.identity(p)[:, i_0])
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
         t = np.zeros(j)
+
+        if x.T.dot(x)-x.T.dot(h).dot(x) <= 0:
+            break
         for i in xrange(len(t)):
             t[i] = (np.abs(x.T.dot(matrix_y[:, i]-h.dot(matrix_y[:, i])))
                     / (vect_sigma[i]*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x))))
@@ -348,6 +350,7 @@ def multi_channel_omp(phi, phi_t, matrix_y, vect_sigma, significance_level=5):
 
         matrix_c = phi_t.dot(matrix_y - phi.dot(matrix_sparse))
         corr_list = np.zeros(p)
+
         for i in xrange(p):
             corr_list[i] = np.linalg.norm(matrix_c[i, :])
 
@@ -358,6 +361,9 @@ def multi_channel_omp(phi, phi_t, matrix_y, vect_sigma, significance_level=5):
         x = phi.dot(np.identity(p)[:, i_0])
         h = dic_arr.dot(np.linalg.inv(dic_arr.T.dot(dic_arr))).dot(dic_arr.T)
         t = np.zeros(j)
+        if x.T.dot(x)-x.T.dot(h).dot(x) <= 0:
+            break
+
         for i in xrange(len(t)):
             t[i] = (np.abs(x.T.dot(matrix_y[:, i]-h.dot(matrix_y[:, i])))
                     / (vect_sigma[i]*sqrt(pow(np.linalg.norm(x), 2)-x.T.dot(h).dot(x))))
@@ -372,68 +378,6 @@ def multi_channel_omp(phi, phi_t, matrix_y, vect_sigma, significance_level=5):
     del atoms_list[-1]
 
     return matrix_sparse, phi.dot(matrix_sparse), err, atoms_list
-
-
-#--------------------------------------------------------------------------------------------------------------#
-#--------------------------------------------   GOODNESS OF FIT   ---------------------------------------------#
-#--------------------------------------------------------------------------------------------------------------#
-
-def classic_r2(level, algorithm, y, sigma, name_1, orth="no", name_2=None):
-    results = []
-
-    dic_t = Classes.DictT(level=level, name=name_1)
-    mat_t_1 = dic_t.dot(np.identity(y.size))
-    if orth == "yes":
-        mat_t_1 = gram_schmidt(mat_t_1.T).T
-    mat_t_1 /= np.sqrt(np.sum(mat_t_1 ** 2, axis=0))
-
-    x_1, z_1, err_1, n_1 = algorithm(mat_t_1.T, mat_t_1, y, sigma)
-
-    r2_1 = np.var(z_1)/np.var(y)
-    results.append(r2_1)
-
-    if name_2 is not None:
-        dic_t = Classes.DictT(level=level, name=name_2)
-        mat_t_2 = dic_t.dot(np.identity(y.size))
-        if orth == "yes":
-            mat_t_2 = gram_schmidt(mat_t_2.T).T
-        mat_t_2 /= np.sqrt(np.sum(mat_t_2 ** 2, axis=0))
-
-        x_2, z_2, err_2, n_2 = algorithm(mat_t_2.T, mat_t_2, y, sigma)
-
-        r2_2 = np.var(z_2)/np.var(y)
-        results.append(r2_2)
-
-    return results
-
-
-def ajusted_r2(level, algorithm, y, sigma, name_1, orth="no", name_2=None):
-    results = []
-
-    dic_t = Classes.DictT(level=level, name=name_1)
-    mat_t_1 = dic_t.dot(np.identity(y.size))
-    if orth == "yes":
-        mat_t_1 = gram_schmidt(mat_t_1.T).T
-    mat_t_1 /= np.sqrt(np.sum(mat_t_1 ** 2, axis=0))
-
-    x_1, z_1, err_1, n_1 = algorithm(mat_t_1.T, mat_t_1, y, sigma)
-
-    r2_1 = np.var(z_1)/np.var(y)
-    results.append(r2_1 - (1 - r2_1)*len(n_1)/(y.size-len(n_1)-1))
-
-    if name_2 is not None:
-        dic_t = Classes.DictT(level=level, name=name_2)
-        mat_t_2 = dic_t.dot(np.identity(y.size))
-        if orth == "yes":
-            mat_t_2 = gram_schmidt(mat_t_2.T).T
-        mat_t_2 /= np.sqrt(np.sum(mat_t_2 ** 2, axis=0))
-
-        x_2, z_2, err_2, n_2 = algorithm(mat_t_2.T, mat_t_2, y, sigma)
-
-        r2_2 = np.var(z_2)/np.var(y)
-        results.append(r2_2 - (1 - r2_2)*len(n_2)/(y.size-len(n_2)-1))
-
-    return results
 
 #--------------------------------------------------------------------------------------------------------------#
 #------------------------------------------   DICTIONARY TESTING   --------------------------------------------#
@@ -489,7 +433,7 @@ def cross_validation(matrix_signal, vect_sigma, wavelet_family, significance_lev
 
     for i in xrange(len(pywt.wavelist(wavelet_family))):
         dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
-        ortho_basis_t = gram_schmidt(dictionary_t.dot(np.identity(training_database.shape[0])).T).T
+        ortho_basis_t = np.linalg.qr(dictionary_t.dot(np.identity(training_database.shape[0])).T)[0].T
         ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
 
         cross_val.append(cross_val_procedure(ortho_basis_t.T, ortho_basis_t,
@@ -508,7 +452,7 @@ def bic_criterion(matrix_signal, vect_sigma, wavelet_family, ortho='no', signifi
         dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
         ortho_basis_t = dictionary_t.dot(np.identity(matrix_signal.shape[0]))
         if ortho == 'yes':
-            ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
+            ortho_basis_t = np.linalg.qr(ortho_basis_t.T)[0].T
         ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
 
         matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
@@ -529,7 +473,7 @@ def aicc_criterion(matrix_signal, vect_sigma, wavelet_family, ortho='no', signif
         dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
         ortho_basis_t = dictionary_t.dot(np.identity(matrix_signal.shape[0]))
         if ortho == 'yes':
-            ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
+            ortho_basis_t = np.linalg.qr(ortho_basis_t.T)[0].T
         ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
 
         matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
@@ -552,7 +496,7 @@ def r_square(matrix_signal, vect_sigma, wavelet_family, ortho='no', significance
         dictionary_t = Classes.DictT(level=None, name=wavelet_family+str(i+1))
         ortho_basis_t = dictionary_t.dot(np.identity(matrix_signal.shape[0]))
         if ortho == 'yes':
-            ortho_basis_t = gram_schmidt(ortho_basis_t.T).T
+            ortho_basis_t = np.linalg.qr(ortho_basis_t.T)[0].T
         ortho_basis_t /= np.sqrt(np.sum(ortho_basis_t ** 2, axis=0))
 
         matrix_x, matrix_z, err, atoms_list = multi_channel_omp(ortho_basis_t.T, ortho_basis_t, matrix_signal,
@@ -567,21 +511,35 @@ def r_square(matrix_signal, vect_sigma, wavelet_family, ortho='no', significance
 
 
 #--------------------------------------------------------------------------------------------------------------#
-#--------------------------------------------   ENTROPY FUNCTIONS   ---------------------------------------------#
+#----------------------------------------------   K-SVD METHOD   ----------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------#
 
-def shannon(vect_unit):
-    p = 0
-    for j in xrange(vect_unit.shape[0]):
-        if vect_unit[j] != 0:
-            p += -pow(vect_unit[j], 2)*log(pow(vect_unit[j], 2))
-    return p
+def dict_update(phi, matrix_y, matrix_sparse, k):
+
+    col_phi = np.atleast_2d(phi[:, k]).T
+    row_sparse = np.atleast_2d(matrix_sparse[k])
+
+    index = np.where(matrix_sparse[k])[0]
+    matrix_e_k = matrix_y - phi.dot(matrix_sparse) + col_phi.dot(row_sparse)
+    u, s, v = np.linalg.svd(matrix_e_k[:, index])
+
+    phi[:, k] = u[:, 0]
+
+    matrix_sparse[k][index] = np.asarray(v)[0] * s[0]
+
+    return phi, matrix_sparse
 
 
-def sum_squares(vect_unit):
-    p = 0
-    for j in xrange(vect_unit.shape[0]):
-        if vect_unit[j] != 0:
-            p += pow(vect_unit[j], 2)
-    return p
+def k_svd(phi, matrix_y, sigma, algorithm, n_iter, significance_level=5):
+    err_iter = []
+    atoms_iter = []
 
+    for k in xrange(n_iter):
+        print "Stage " + str(k+1) + "/" + str(n_iter) + "..."
+        matrix_sparse, matrix_z, err, atoms_list = algorithm(phi, phi.T, matrix_y, sigma, significance_level)
+        err_iter.append(err)
+        atoms_iter.append(atoms_list)
+        for j in atoms_list:
+            phi, matrix_sparse = dict_update(phi, matrix_y, matrix_sparse, j)
+
+    return phi, matrix_sparse, err_iter, atoms_iter
