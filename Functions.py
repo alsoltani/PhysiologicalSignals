@@ -1,4 +1,5 @@
 #coding:latin_1
+
 from math import sqrt, floor
 import numpy as np
 import pywt

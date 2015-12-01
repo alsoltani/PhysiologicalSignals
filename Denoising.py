@@ -1,4 +1,5 @@
 #coding:latin_1
+
 import math
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
